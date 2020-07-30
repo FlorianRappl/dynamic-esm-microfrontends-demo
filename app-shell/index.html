@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<meta charset="UTF-8" />
+<title>App Shell for ESM Microfrontends</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="X-UA-Compatible" content="ie=edge" />
+<link href="./style.css" rel="stylesheet" />
+<script
+  type="systemjs-importmap"
+  category="dependencies"
+  src="./dependencies.json"
+></script>
+<script
+  type="systemjs-importmap"
+  category="microfrontends"
+  src="https://feed.piral.cloud/api/v1/importmap/dynamic-esm-microfrontends-demo"
+></script>
+<div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/systemjs/6.4.0/system.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/systemjs/6.4.0/extras/amd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/systemjs/6.4.0/extras/named-exports.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/systemjs/6.4.0/extras/named-register.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/systemjs/6.4.0/extras/use-default.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/systemjs/6.4.0/extras/dynamic-import-maps.min.js"></script>
+<script>
+  Promise.all([System.import("react"), System.import("react-dom")]).then(
+    ([react, reactDom]) => {
+      const components = {};
+      window.getComponent = (name) =>
+        components[name] ||
+        ((props) => {
+          const [component, setComponent] = react.useState(null);
+          react.useEffect(() => {
+            const handler = (ev) => {
+              if (ev.detail === name) {
+                setComponent(components[name]);
+              }
+            };
+            window.addEventListener("component-registered", handler);
+            return () =>
+              window.removeEventListener("component-registered", handler);
+          }, []);
+
+          if (typeof component === "function") {
+            return react.createElement(component, props);
+          }
+
+          return null;
+        });
+
+      window.registerPage = (component) => {
+        reactDom.render(
+          react.createElement(component),
+          document.querySelector("#app")
+        );
+      };
+
+      window.registerComponent = (name, component) => {
+        components[name] = component;
+        window.dispatchEvent(
+          new CustomEvent("component-registered", {
+            detail: name,
+          })
+        );
+      };
+
+      fetch(document.querySelector("script[category=microfrontends").src)
+        .then((res) => res.json())
+        .then((res) =>
+          Object.keys(res.imports).map((mfe) => System.import(mfe))
+        );
+    }
+  );
+</script>
